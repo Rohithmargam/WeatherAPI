@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Beautiful Weather App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    /* ========== GLOBAL STYLES ========== */
+    :root {
+      --bg-gradient: linear-gradient(135deg, #1e3c72, #2a5298);
+      --card-bg: rgba(255, 255, 255, 0.12);
+      --card-border: rgba(255, 255, 255, 0.25);
+      --accent: #ffce00;
+      --text-main: #ffffff;
+      --text-muted: #d9e2ff;
+      --error: #ff6b6b;
+      --shadow-soft: 0 20px 40px rgba(0, 0, 0, 0.35);
+      --radius-xl: 24px;
+      --transition-fast: 0.25s ease;
+      --blur: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image: var(--bg-gradient);
+      color: var(--text-main);
+      padding: 16px;
+    }
+
+    /* Floating background circles */
+    .bg-circle {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(50px);
+      opacity: 0.55;
+      z-index: -1;
+    }
+
+    .bg-circle.one {
+      width: 260px;
+      height: 260px;
+      background: #00c6ff;
+      top: -60px;
+      right: -40px;
+    }
+
+    .bg-circle.two {
+      width: 220px;
+      height: 220px;
+      background: #f7797d;
+      bottom: -80px;
+      left: -40px;
+    }
+
+    /* ========== MAIN WRAPPER ========== */
+    .weather-app {
+      width: 100%;
+      max-width: 420px;
+      backdrop-filter: blur(var(--blur));
+      background: var(--card-bg);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--card-border);
+      box-shadow: var(--shadow-soft);
+      padding: 24px 22px 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .weather-app::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(
+        circle at top left,
+        rgba(255, 255, 255, 0.24),
+        transparent 55%
+      );
+      opacity: 0.7;
+    }
+
+    .weather-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ========== HEADER ========== */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .app-title {
+      font-weight: 600;
+      font-size: 1.2rem;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .app-title span.icon {
+      font-size: 1.4rem;
+    }
+
+    .app-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      opacity: 0.9;
+    }
+
+    /* ========== SEARCH BAR ========== */
+    .search-section {
+      margin-bottom: 16px;
+    }
+
+    .search-form {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      background: rgba(0, 0, 0, 0.1);
+      color: #fff;
+      outline: none;
+      font-size: 0.9rem;
+      transition: border var(--transition-fast),
+        background var(--transition-fast), box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+    }
+
+    .search-input::placeholder {
+      color: rgba(230, 235, 255, 0.8);
+      font-size: 0.84rem;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      background: rgba(0, 0, 0, 0.2);
+      box-shadow: 0 0 0 1px rgba(255, 206, 0, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .search-button {
+      padding: 9px 14px;
+      border-radius: 999px;
+      border: none;
+      background: var(--accent);
+      color: #1a2138;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: transform var(--transition-fast),
+        box-shadow var(--transition-fast), background var(--transition-fast);
+      box-shadow: 0 10px 18px rgba(0, 0, 0, 0.28);
+      white-space: nowrap;
+    }
+
+    .search-button span.icon {
+      font-size: 1.1rem;
+    }
+
+    .search-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 22px rgba(0, 0, 0, 0.35);
+      background: #ffe162;
+    }
+
+    .search-button:active {
+      transform: translateY(0);
+      box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Helper / error text */
+    .helper-text {
+      margin-top: 6px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .helper-text span {
+      font-weight: 500;
+    }
+
+    .error-text {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--error);
+    }
+
+    /* ========== WEATHER CARD ========== */
+    .weather-card {
+      margin-top: 10px;
+      padding: 16px 14px 12px;
+      border-radius: 18px;
+      background: linear-gradient(
+        135deg,
+        rgba(10, 23, 60, 0.92),
+        rgba(57, 130, 199, 0.92)
+      );
+      position: relative;
+      overflow: hidden;
+      display: none; /* hidden until data loads */
+    }
+
+    .weather-card.visible {
+      display: block;
+      animation: fadeInUp 0.4s ease-out;
+    }
+
+    .weather-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .location-info {
+      max-width: 60%;
+    }
+
+    .location-name {
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .location-region {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      opacity: 0.95;
+    }
+
+    .updated-time {
+      margin-top: 4px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      opacity: 0.9;
+    }
+
+    .temp-info {
+      text-align: right;
+    }
+
+    .temp-value {
+      font-size: 2.4rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .temp-unit {
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    .condition-text {
+      font-size: 0.85rem;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      color: var(--text-muted);
+    }
+
+    .condition-icon {
+      width: 32px;
+      height: 32px;
+      image-rendering: -webkit-optimize-contrast;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+    }
+
+    .weather-bottom {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .stat-chip {
+      padding: 8px 8px 7px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-size: 0.76rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      backdrop-filter: blur(8px);
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+    }
+
+    .stat-value {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    /* ========== LOADING SPINNER ========== */
+    .loading {
+      margin-top: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .loading.visible {
+      display: inline-flex;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-top-color: var(--accent);
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ========== ANIMATIONS ========== */
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ========== RESPONSIVE TWEAKS ========== */
+    @media (max-width: 480px) {
+      .weather-app {
+        padding: 18px 18px 18px;
+      }
+
+      .temp-value {
+        font-size: 2.2rem;
+      }
+
+      .weather-bottom {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient gradient blobs -->
+  <div class="bg-circle one"></div>
+  <div class="bg-circle two"></div>
+
+  <main class="weather-app">
+    <div class="weather-inner">
+      <!-- Header -->
+      <header class="app-header">
+        <div>
+          <div class="app-title">
+            <span class="icon">☁️</span>
+            <span>Weather Today</span>
+          </div>
+          <p class="app-subtitle">
+            Check live temperature for any city in the world.
+          </p>
+        </div>
+      </header>
+
+      <!-- Search -->
+      <section class="search-section">
+        <form class="search-form" id="searchForm">
+          <input
+            type="text"
+            id="locationInput"
+            class="search-input"
+            placeholder="Enter city or place (e.g. London)"
+            autocomplete="off"
+            required
+          />
+          <button type="submit" class="search-button">
+            <span class="icon">🔍</span>
+            <span>Search</span>
+          </button>
+        </form>
+        <p class="helper-text">
+          Tip: You can also enter <span>City, Country</span> (e.g. “Hyderabad, India”).
+        </p>
+        <p class="error-text" id="errorText" style="display: none;"></p>
+        <div class="loading" id="loadingState">
+          <div class="spinner"></div>
+          <span>Fetching latest weather...</span>
+        </div>
+      </section>
+
+      <!-- Weather Result Card -->
+      <section class="weather-card" id="weatherCard">
+        <div class="weather-top">
+          <div class="location-info">
+            <div class="location-name" id="locationName">—</div>
+            <div class="location-region" id="locationRegion">—</div>
+            <div class="updated-time" id="updatedTime">Updated: —</div>
+          </div>
+          <div class="temp-info">
+            <div>
+              <span class="temp-value" id="tempValue">--</span>
+              <span class="temp-unit">°C</span>
+            </div>
+            <div class="condition-text">
+              <span id="conditionText">—</span>
+              <img
+                id="conditionIcon"
+                class="condition-icon"
+                src=""
+                alt="Weather condition icon"
+                style="display: none;"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="weather-bottom">
+          <div class="stat-chip">
+            <span class="stat-label">Feels like</span>
+            <span class="stat-value" id="feelsLike">-- °C</span>
+          </div>
+          <div class="stat-chip">
+            <span class="stat-label">Humidity</span>
+            <span class="stat-value" id="humidity">-- %</span>
+          </div>
+          <div class="stat-chip">
+            <span class="stat-label">Wind</span>
+            <span class="stat-value" id="wind">-- kph</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    // ========== CONFIG ==========
+    const API_KEY = "1bdfa49b176748afb49123005251012"; // Your key
+    const BASE_URL = "https://api.weatherapi.com/v1/current.json"; // use https
+
+    // ========== ELEMENTS ==========
+    const searchForm = document.getElementById("searchForm");
+    const locationInput = document.getElementById("locationInput");
+    const errorText = document.getElementById("errorText");
+    const loadingState = document.getElementById("loadingState");
+    const weatherCard = document.getElementById("weatherCard");
+
+    const locationNameEl = document.getElementById("locationName");
+    const locationRegionEl = document.getElementById("locationRegion");
+    const updatedTimeEl = document.getElementById("updatedTime");
+    const tempValueEl = document.getElementById("tempValue");
+    const conditionTextEl = document.getElementById("conditionText");
+    const conditionIconEl = document.getElementById("conditionIcon");
+    const feelsLikeEl = document.getElementById("feelsLike");
+    const humidityEl = document.getElementById("humidity");
+    const windEl = document.getElementById("wind");
+
+    // ========== HELPERS ==========
+    function showError(message) {
+      errorText.textContent = message;
+      errorText.style.display = "block";
+    }
+
+    function clearError() {
+      errorText.textContent = "";
+      errorText.style.display = "none";
+    }
+
+    function setLoading(isLoading) {
+      loadingState.classList.toggle("visible", isLoading);
+    }
+
+    function formatUpdatedTime(localtime) {
+      // WeatherAPI returns "YYYY-MM-DD HH:mm"
+      if (!localtime) return "Updated: —";
+
+      const [datePart, timePart] = localtime.split(" ");
+      const [year, month, day] = datePart.split("-").map(Number);
+
+      const date = new Date(year, month - 1, day);
+      const formattedDate = date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+
+      return `Updated: ${formattedDate} • ${timePart}`;
+    }
+
+    function updateUI(data) {
+      const { location, current } = data;
+
+      locationNameEl.textContent = location.name || "Unknown";
+      locationRegionEl.textContent = `${location.region || ""}${
+        location.region && location.country ? ", " : ""
+      }${location.country || ""}`;
+
+      updatedTimeEl.textContent = formatUpdatedTime(location.localtime);
+
+      tempValueEl.textContent =
+        typeof current.temp_c === "number" ? Math.round(current.temp_c) : "--";
+
+      conditionTextEl.textContent = current.condition?.text || "—";
+
+      if (current.condition?.icon) {
+        // API sometimes returns //cdn..., ensure scheme
+        let iconUrl = current.condition.icon;
+        if (iconUrl.startsWith("//")) {
+          iconUrl = "https:" + iconUrl;
+        }
+        conditionIconEl.src = iconUrl;
+        conditionIconEl.style.display = "block";
+      } else {
+        conditionIconEl.style.display = "none";
+      }
+
+      feelsLikeEl.textContent =
+        typeof current.feelslike_c === "number"
+          ? Math.round(current.feelslike_c) + " °C"
+          : "-- °C";
+
+      humidityEl.textContent =
+        typeof current.humidity === "number"
+          ? current.humidity + " %"
+          : "-- %";
+
+      windEl.textContent =
+        typeof current.wind_kph === "number"
+          ? current.wind_kph + " kph"
+          : "-- kph";
+
+      weatherCard.classList.add("visible");
+    }
+
+    async function fetchWeather(query) {
+      clearError();
+      setLoading(true);
+      weatherCard.classList.remove("visible");
+
+      try {
+        const url = `${BASE_URL}?key=${API_KEY}&q=${encodeURIComponent(
+          query
+        )}&aqi=yes`;
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          // Try to read the error message from the API
+          let errorMessage = "Unable to fetch weather data.";
+          try {
+            const errorData = await response.json();
+            if (errorData?.error?.message) {
+              errorMessage = errorData.error.message;
+            }
+          } catch (e) {
+            // ignore JSON parse errors
+          }
+          throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        updateUI(data);
+      } catch (err) {
+        showError(err.message || "Something went wrong. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // ========== EVENT LISTENERS ==========
+    searchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const query = locationInput.value.trim();
+
+      if (!query) {
+        showError("Please enter a city or location.");
+        return;
+      }
+
+      fetchWeather(query);
+    });
+
+    // Optional: pre-fill with a default city
+    // locationInput.value = "London";
+    // fetchWeather("London");
+  </script>
+</body>
+</html>
